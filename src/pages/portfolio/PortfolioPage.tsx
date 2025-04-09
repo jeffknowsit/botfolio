@@ -4,7 +4,7 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { useAuth } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
-import { supabase, SUPABASE_PROJECT_URL } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AddStockModal } from "@/components/portfolio/add-stock-modal";
@@ -12,8 +12,26 @@ import { StockDetailModal } from "@/components/portfolio/stock-detail-modal";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SubscriptionModal } from "@/components/ui/subscription-modal";
-import { toast } from "sonner";
+
+// Mock data for stock charts
+const generateChartData = (trend: 'up' | 'down') => {
+  const randomStart = trend === 'up' ? 30 : 60;
+  const direction = trend === 'up' ? 1 : -1;
+  return Array(8).fill(0).map((_, i) => {
+    const randomFactor = Math.random() * 10;
+    return randomStart + (i * direction * 3) + randomFactor;
+  });
+};
+
+// Generate mock stock price
+const generateMockPrice = () => {
+  return (Math.random() * 200 + 50).toFixed(2);
+};
+
+// Generate mock change percentage
+const generateMockChange = () => {
+  return (Math.random() * 5 - 2).toFixed(2);
+};
 
 export default function PortfolioPage() {
   const { user, loading } = useAuth();
@@ -21,7 +39,6 @@ export default function PortfolioPage() {
   const [portfolioStocks, setPortfolioStocks] = useState<any[]>([]);
   const [selectedStock, setSelectedStock] = useState<any>(null);
   const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   
   // Portfolio stats derived from stocks
   const totalValue = portfolioStocks.reduce(
@@ -70,65 +87,18 @@ export default function PortfolioPage() {
       
       if (error) throw error;
       
-      if (stocks && stocks.length > 0) {
-        try {
-          // Fetch real-time stock data from edge function
-          const response = await fetch(
-            `${SUPABASE_PROJECT_URL}/functions/v1/market-data/stocks`
-          );
-          
-          if (!response.ok) {
-            throw new Error('Failed to fetch stocks data');
-          }
-          
-          const { data: stocksData } = await response.json();
-          
-          // Merge portfolio stocks with real-time data
-          const enhancedStocks = stocks.map(stock => {
-            const realTimeData = stocksData.find((s: any) => s.symbol === stock.stock_symbol);
-            
-            if (realTimeData) {
-              return {
-                ...stock,
-                price: realTimeData.current_price,
-                change: realTimeData.change,
-                chartData: generateChartData(parseFloat(realTimeData.change) >= 0 ? 'up' : 'down'),
-                color: parseFloat(realTimeData.change) >= 0 ? "#34d399" : "#f43f5e",
-              };
-            }
-            
-            // Fallback to mock data if real-time data not available
-            return {
-              ...stock,
-              price: generateMockPrice(),
-              change: generateMockChange(),
-              chartData: generateChartData(Math.random() > 0.5 ? 'up' : 'down'),
-              color: Math.random() > 0.5 ? "#34d399" : "#f43f5e",
-            };
-          });
-          
-          setPortfolioStocks(enhancedStocks);
-        } catch (apiError) {
-          console.error("Error fetching real-time stock data:", apiError);
-          toast.error("Failed to fetch real-time stock data");
-          
-          // Fallback to mock data
-          const enhancedStocks = stocks.map(stock => ({
-            ...stock,
-            price: generateMockPrice(),
-            change: generateMockChange(),
-            chartData: generateChartData(Math.random() > 0.5 ? 'up' : 'down'),
-            color: Math.random() > 0.5 ? "#34d399" : "#f43f5e",
-          }));
-          
-          setPortfolioStocks(enhancedStocks);
-        }
-      } else {
-        setPortfolioStocks([]);
-      }
+      // Enhance stocks with mock data for UI
+      const enhancedStocks = stocks.map(stock => ({
+        ...stock,
+        price: generateMockPrice(),
+        change: generateMockChange(),
+        chartData: generateChartData(Math.random() > 0.5 ? 'up' : 'down'),
+        color: Math.random() > 0.5 ? "#34d399" : "#f43f5e",
+      }));
+      
+      setPortfolioStocks(enhancedStocks);
     } catch (error) {
       console.error("Error fetching portfolio stocks:", error);
-      toast.error("Failed to load your portfolio");
     } finally {
       setLoadingStocks(false);
     }
@@ -149,13 +119,6 @@ export default function PortfolioPage() {
       
       if (data) {
         setUserCredits(data.credits_remaining);
-        
-        // Show subscription modal if credits are at 0
-        if (data.credits_remaining === 0) {
-          // Don't show modal immediately on page load
-          // We'll just let the user see their portfolio first
-          // setShowSubscriptionModal(true);
-        }
       } else {
         // Create user credits if not exist
         const { error: insertError } = await supabase
@@ -176,26 +139,6 @@ export default function PortfolioPage() {
       fetchUserCredits();
     }
   }, [user]);
-
-  // Mock data for charts
-  const generateChartData = (trend: 'up' | 'down') => {
-    const randomStart = trend === 'up' ? 30 : 60;
-    const direction = trend === 'up' ? 1 : -1;
-    return Array(8).fill(0).map((_, i) => {
-      const randomFactor = Math.random() * 10;
-      return randomStart + (i * direction * 3) + randomFactor;
-    });
-  };
-
-  // Generate mock stock price
-  const generateMockPrice = () => {
-    return (Math.random() * 200 + 50).toFixed(2);
-  };
-
-  // Generate mock change percentage
-  const generateMockChange = () => {
-    return (Math.random() * 5 - 2).toFixed(2);
-  };
 
   // If not logged in and not loading, redirect to login
   if (!loading && !user) {
@@ -313,13 +256,6 @@ export default function PortfolioPage() {
           onClose={() => setSelectedStock(null)}
         />
       )}
-      
-      {/* Subscription modal */}
-      <SubscriptionModal
-        trigger={<></>} // Hidden trigger as we open it programmatically
-        open={showSubscriptionModal}
-        onOpenChange={setShowSubscriptionModal}
-      />
     </div>
   );
 }
