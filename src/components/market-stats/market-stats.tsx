@@ -5,41 +5,37 @@ import {
   LineChart,
   Line,
   ResponsiveContainer,
+  Tooltip,
   AreaChart,
   Area,
-  Tooltip,
+  XAxis,
 } from "recharts";
 import { DetailedChart } from "./detailed-chart";
 import { ExternalLink } from "lucide-react";
 
-// Mock data
-const niftyData = [
-  { value: 18250 },
-  { value: 18300 },
-  { value: 18400 },
-  { value: 18380 },
-  { value: 18450 },
-  { value: 18500 },
-  { value: 18510 },
-  { value: 18550 },
-  { value: 18600 },
-  { value: 18650 },
-  { value: 18700 },
-];
+// Mock data with candlestick pattern like in the image
+const generateMarketData = (baseValue: number, isUptrend: boolean) => {
+  const data = [];
+  let currentValue = baseValue;
+  
+  for (let i = 0; i < 30; i++) {
+    // Create more volatile movements like in the example image
+    const volatility = Math.random() * 80 + 40;
+    const direction = (Math.random() > 0.45 ? 1 : -1) * (isUptrend ? 1.2 : -0.8);
+    currentValue = currentValue + direction * volatility * Math.random();
+    
+    data.push({
+      date: i,
+      value: parseFloat(currentValue.toFixed(2)),
+    });
+  }
+  
+  return data;
+};
 
-const sensexData = [
-  { value: 61200 },
-  { value: 61300 },
-  { value: 61350 },
-  { value: 61500 },
-  { value: 61450 },
-  { value: 61550 },
-  { value: 61600 },
-  { value: 61650 },
-  { value: 61700 },
-  { value: 61750 },
-  { value: 61800 },
-];
+// Generate data for NIFTY and SENSEX
+const niftyData = generateMarketData(22400, true);
+const sensexData = generateMarketData(61200, false);
 
 export function MarketStats() {
   const [detailedView, setDetailedView] = useState<"NIFTY 50" | "SENSEX" | null>(null);
@@ -49,18 +45,18 @@ export function MarketStats() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StatCardWithChart
           title="NIFTY 50"
-          value="18,756.15"
+          value="22,420.40"
           change={1.2}
           data={niftyData}
-          lineColor="#8b5cf6"
+          lineColor="#10b981" // Green color for uptrend
           onViewDetails={() => setDetailedView("NIFTY 50")}
         />
         <StatCardWithChart
           title="SENSEX"
           value="61,872.64"
-          change={0.8}
+          change={-0.8}
           data={sensexData}
-          lineColor="#06b6d4"
+          lineColor="#ef4444" // Red color for downtrend
           onViewDetails={() => setDetailedView("SENSEX")}
         />
       </div>
@@ -91,7 +87,10 @@ function StatCardWithChart({
   const isPositive = change > 0;
 
   return (
-    <Card className="glass-card overflow-hidden border-white/10 backdrop-blur-xl neon-border hover:shadow-lg transition-shadow duration-300 cursor-pointer group" onClick={onViewDetails}>
+    <Card 
+      className="glass-card overflow-hidden border-white/10 backdrop-blur-xl neon-border hover:shadow-lg transition-shadow duration-300 cursor-pointer group" 
+      onClick={onViewDetails}
+    >
       <CardContent className="p-0">
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-center p-6">
@@ -104,8 +103,8 @@ function StatCardWithChart({
                     isPositive ? "text-green-500" : "text-red-500"
                   }`}
                 >
-                  {isPositive ? "+" : "-"}
-                  {Math.abs(change)}%
+                  {isPositive ? "+" : ""}
+                  {change}%
                 </span>
               </div>
             </div>
@@ -117,16 +116,17 @@ function StatCardWithChart({
             </div>
           </div>
           
-          <div className="h-24 pt-2">
+          <div className="h-24">
             <ResponsiveContainer width="100%" height="100%">
               {isPositive ? (
-                <AreaChart data={data}>
+                <AreaChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id={`color${title}`} x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={lineColor} stopOpacity={0.3}/>
                       <stop offset="95%" stopColor={lineColor} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
+                  <XAxis dataKey="date" hide={true} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#1a1625",
@@ -146,7 +146,7 @@ function StatCardWithChart({
                   />
                 </AreaChart>
               ) : (
-                <LineChart data={data}>
+                <LineChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#1a1625",

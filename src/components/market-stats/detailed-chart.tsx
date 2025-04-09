@@ -1,213 +1,328 @@
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { 
+  Card, 
+  CardContent 
+} from "@/components/ui/card";
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
-  AreaChart,
-  Area,
 } from "recharts";
-import { ChevronLeft, Download, Share2, TrendingUp, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { X, Download, ChevronDown, ChevronUp, Filter, Sparkles } from "lucide-react";
+
+// Generate historical data for the chart
+const generateHistoricalData = (days: number) => {
+  const data = [];
+  let currentValue = 18500;
+  
+  for (let i = 0; i < days; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - (days - i));
+    
+    const open = currentValue;
+    const volatility = Math.random() * 100 + 50;
+    const close = open + (Math.random() > 0.5 ? 1 : -1) * volatility * Math.random();
+    const low = Math.min(open, close) - volatility * Math.random() * 0.5;
+    const high = Math.max(open, close) + volatility * Math.random() * 0.5;
+    
+    data.push({
+      date: date.toISOString().split('T')[0],
+      open: parseFloat(open.toFixed(2)),
+      high: parseFloat(high.toFixed(2)),
+      low: parseFloat(low.toFixed(2)),
+      close: parseFloat(close.toFixed(2)),
+      volume: Math.floor(Math.random() * 10000000 + 5000000),
+    });
+    
+    currentValue = close;
+  }
+  
+  return data;
+};
 
 interface DetailedChartProps {
   symbol: string;
   onClose: () => void;
 }
 
-// Mock historical data for the chart
-const generateHistoricalData = (base: number, points: number) => {
-  const data = [];
-  let currentValue = base;
-  
-  // Generate historical data for the past 30 days
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    
-    // Random fluctuation around the base value
-    currentValue = currentValue + (Math.random() - 0.5) * 100;
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      value: currentValue.toFixed(2),
-    });
-  }
-  
-  return data;
-};
-
 export function DetailedChart({ symbol, onClose }: DetailedChartProps) {
-  const [timeRange, setTimeRange] = useState<"1D" | "1W" | "1M" | "3M" | "1Y" | "All">("1M");
-  const [chartType, setChartType] = useState<"line" | "area">("area");
+  const [timeRange, setTimeRange] = useState<"1D" | "1W" | "1M" | "3M" | "1Y" | "5Y">("1M");
+  const [chartType, setChartType] = useState<"area" | "line" | "candlestick">("area");
+  const [showTools, setShowTools] = useState(true);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<any>(null);
   
-  // Mock data based on symbol
-  const baseValue = symbol === "NIFTY 50" ? 18700 : 61800;
-  const historicalData = generateHistoricalData(baseValue, 30);
-  const currentValue = parseFloat(historicalData[historicalData.length - 1].value);
-  const previousValue = parseFloat(historicalData[historicalData.length - 2].value);
-  const changePercent = (((currentValue - previousValue) / previousValue) * 100).toFixed(2);
-  const isPositive = Number(changePercent) >= 0;
-
+  // Generate data based on selected time range
+  const getChartData = () => {
+    switch(timeRange) {
+      case "1D": return generateHistoricalData(1);
+      case "1W": return generateHistoricalData(7);
+      case "1M": return generateHistoricalData(30);
+      case "3M": return generateHistoricalData(90);
+      case "1Y": return generateHistoricalData(365);
+      case "5Y": return generateHistoricalData(365 * 5);
+      default: return generateHistoricalData(30);
+    }
+  };
+  
+  const chartData = getChartData();
+  
+  const handleGetPrediction = () => {
+    setIsPredicting(true);
+    setTimeout(() => {
+      setIsPredicting(false);
+      setPrediction({
+        direction: "up",
+        confidence: 82,
+        target: symbol === "NIFTY 50" ? "19,200" : "76,500",
+        timeframe: "1-2 weeks",
+        advice: "Momentum indicators suggest a bullish trend. Consider long positions with tight stop-losses."
+      });
+    }, 2000);
+  };
+  
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto glass-card border-white/10">
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <ChevronLeft />
-              </Button>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-7xl h-[90vh] overflow-y-auto glass-card border-white/10">
+        <CardContent className="p-0">
+          {/* Header */}
+          <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-white/10 px-6 py-4 flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold">{symbol}</h2>
+              <div className="text-sm text-muted-foreground">
+                Last updated: {new Date().toLocaleString()}
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X />
+            </Button>
+          </div>
+          
+          <div className="p-6">
+            {/* Current Price Info */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
               <div>
-                <h2 className="text-2xl font-bold">{symbol}</h2>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-semibold">
-                    {currentValue.toLocaleString()}
-                  </span>
-                  <span className={`text-sm font-medium ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                    {isPositive ? "+" : ""}{changePercent}%
-                    <TrendingUp className={`inline ml-1 ${isPositive ? "" : "rotate-180"}`} size={14} />
-                  </span>
+                <div className="text-sm text-muted-foreground">Current</div>
+                <div className="text-2xl font-semibold">{symbol === "NIFTY 50" ? "18,532.75" : "61,259.32"}</div>
+                <div className="text-sm text-green-500">+1.2%</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Open</div>
+                <div className="text-xl font-semibold">{symbol === "NIFTY 50" ? "18,450.25" : "61,019.12"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">High</div>
+                <div className="text-xl font-semibold">{symbol === "NIFTY 50" ? "18,575.80" : "61,352.55"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Low</div>
+                <div className="text-xl font-semibold">{symbol === "NIFTY 50" ? "18,392.30" : "60,925.40"}</div>
+              </div>
+            </div>
+            
+            {/* Chart Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div className="flex space-x-2">
+                {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((range) => (
+                  <Button 
+                    key={range}
+                    size="sm"
+                    variant={timeRange === range ? "default" : "outline"}
+                    onClick={() => setTimeRange(range as any)}
+                    className={timeRange === range ? "bg-primary" : ""}
+                  >
+                    {range}
+                  </Button>
+                ))}
+              </div>
+              
+              <div className="flex space-x-2">
+                <Button 
+                  variant={chartType === "line" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setChartType("line")}
+                  className={chartType === "line" ? "bg-primary" : ""}
+                >
+                  Line
+                </Button>
+                <Button 
+                  variant={chartType === "area" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setChartType("area")}
+                  className={chartType === "area" ? "bg-primary" : ""}
+                >
+                  Area
+                </Button>
+                <Button 
+                  variant={chartType === "candlestick" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setChartType("candlestick")}
+                  className={chartType === "candlestick" ? "bg-primary" : ""}
+                >
+                  Candlestick
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTools(!showTools)}
+                >
+                  Tools {showTools ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            
+            {/* Tools Panel */}
+            {showTools && (
+              <div className="mb-6 p-4 bg-black/20 rounded-lg border border-white/5">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Moving Average
+                  </Button>
+                  <Button variant="outline" size="sm">RSI</Button>
+                  <Button variant="outline" size="sm">MACD</Button>
+                  <Button variant="outline" size="sm">Bollinger Bands</Button>
+                  <Button variant="outline" size="sm">Volume</Button>
+                  <Button variant="outline" size="sm">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Add Indicator
+                  </Button>
                 </div>
               </div>
+            )}
+            
+            {/* Main Chart */}
+            <div className="h-[500px] w-full mb-6">
+              <ResponsiveContainer width="100%" height="100%">
+                {chartType === "line" ? (
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="date" tick={{ fill: '#ccc' }} />
+                    <YAxis tick={{ fill: '#ccc' }} domain={['dataMin - 200', 'dataMax + 200']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                    <Legend />
+                    <Line type="monotone" dataKey="close" name={symbol} stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                  </LineChart>
+                ) : chartType === "area" ? (
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="date" tick={{ fill: '#ccc' }} />
+                    <YAxis tick={{ fill: '#ccc' }} domain={['dataMin - 200', 'dataMax + 200']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                    <Legend />
+                    <Area type="monotone" dataKey="close" name={symbol} stroke="#8b5cf6" fillOpacity={1} fill="url(#colorClose)" />
+                  </AreaChart>
+                ) : (
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="date" tick={{ fill: '#ccc' }} />
+                    <YAxis tick={{ fill: '#ccc' }} domain={['dataMin - 200', 'dataMax + 200']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                    <Legend />
+                    <Bar 
+                      dataKey="volume" 
+                      name="Volume" 
+                      fill={(entry) => {
+                        return entry.open > entry.close ? "#ef4444" : "#10b981";
+                      }}
+                    />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Search className="mr-1" size={14} />
-                Compare
-              </Button>
-              <Button variant="outline" size="sm">
-                <Filter className="mr-1" size={14} />
-                Indicators
-              </Button>
-              <Button variant="outline" size="sm">
-                <Share2 className="mr-1" size={14} />
-                Share
-              </Button>
-              <Button variant="outline" size="sm">
-                <Download className="mr-1" size={14} />
-                Export
-              </Button>
-            </div>
-          </div>
-          
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex space-x-2">
-              {["1D", "1W", "1M", "3M", "1Y", "All"].map((range) => (
-                <Button 
-                  key={range}
-                  size="sm"
-                  variant={timeRange === range ? "default" : "outline"}
-                  onClick={() => setTimeRange(range as any)}
-                  className={timeRange === range ? "bg-primary" : ""}
-                >
-                  {range}
-                </Button>
-              ))}
-            </div>
-            <div className="flex space-x-2">
-              <Button 
-                size="sm"
-                variant={chartType === "line" ? "default" : "outline"}
-                onClick={() => setChartType("line")}
-                className={chartType === "line" ? "bg-primary" : ""}
-              >
-                Line
-              </Button>
-              <Button 
-                size="sm"
-                variant={chartType === "area" ? "default" : "outline"}
-                onClick={() => setChartType("area")}
-                className={chartType === "area" ? "bg-primary" : ""}
-              >
-                Area
-              </Button>
-            </div>
-          </div>
-          
-          <div className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              {chartType === "line" ? (
-                <LineChart
-                  data={historicalData}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#888" 
-                    tick={{ fill: '#ccc' }}
-                  />
-                  <YAxis 
-                    stroke="#888" 
-                    tick={{ fill: '#ccc' }}
-                    domain={['dataMin - 100', 'dataMax + 100']}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke={isPositive ? "#10b981" : "#ef4444"} 
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              ) : (
-                <AreaChart
-                  data={historicalData}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#888" 
-                    tick={{ fill: '#ccc' }}
-                  />
-                  <YAxis 
-                    stroke="#888" 
-                    tick={{ fill: '#ccc' }}
-                    domain={['dataMin - 100', 'dataMax + 100']}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                  />
-                  <Legend />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke={isPositive ? "#10b981" : "#ef4444"} 
-                    fill={isPositive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)"} 
-                    strokeWidth={2}
-                    activeDot={{ r: 6 }}
-                  />
-                </AreaChart>
-              )}
-            </ResponsiveContainer>
-          </div>
-          
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-4">AI Prediction</h3>
-            <div className="bg-black/30 border border-white/10 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">Prediction confidence</span>
-                <span className={`text-sm font-medium ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                  {Math.floor(Math.random() * 30) + 70}%
-                </span>
+            
+            {/* AI Prediction Section */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles className="text-primary" size={18} />
+                  AI Market Prediction
+                </h3>
+                {!prediction && (
+                  <Button 
+                    onClick={handleGetPrediction}
+                    disabled={isPredicting}
+                  >
+                    {isPredicting ? "Analyzing market data..." : "Get AI Prediction"}
+                  </Button>
+                )}
               </div>
-              <p className="text-sm">
-                Based on historical patterns and current market conditions, {symbol} is expected to 
-                {isPositive ? " continue its upward trend over the next 24-48 hours. Volume indicators suggest strong buying interest." : " face resistance at current levels. Consider waiting for a pullback before adding positions."}
-              </p>
+              
+              {prediction && (
+                <Card className="glass-card border-white/10 p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center gap-4">
+                        <div className={`flex items-center justify-center h-12 w-12 rounded-full ${
+                          prediction.direction === "up" ? "bg-green-500/20" : "bg-red-500/20"
+                        }`}>
+                          <span className={`text-2xl ${
+                            prediction.direction === "up" ? "text-green-500" : "text-red-500"
+                          }`}>
+                            {prediction.direction === "up" ? "↑" : "↓"}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Prediction</div>
+                          <div className="text-xl font-semibold">
+                            {prediction.direction === "up" ? "Bullish" : "Bearish"}
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Confidence:</span> <span className="font-medium">{prediction.confidence}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Target Price</div>
+                      <div className="text-xl font-semibold">{prediction.target}</div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Timeframe:</span> <span>{prediction.timeframe}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="text-sm text-muted-foreground mb-2">Analysis</div>
+                    <p>{prediction.advice}</p>
+                  </div>
+                </Card>
+              )}
+            </div>
+            
+            {/* Export Button */}
+            <div className="text-right">
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export Chart Data
+              </Button>
             </div>
           </div>
         </CardContent>

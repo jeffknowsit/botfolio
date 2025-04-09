@@ -20,8 +20,14 @@ import AnalysisPage from "./pages/analysis/AnalysisPage";
 import NewsPage from "./pages/news/NewsPage";
 
 function App() {
-  // Create a client
-  const [queryClient] = useState(() => new QueryClient());
+  // Create a client with default options
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000, // 5 minutes
+      },
+    },
+  }));
   
   return (
     <QueryClientProvider client={queryClient}>

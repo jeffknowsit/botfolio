@@ -1,110 +1,170 @@
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
-import { useAuth } from "@/lib/auth";
-import { Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer, 
-  AreaChart, 
+import {
+  LineChart,
+  Line,
+  AreaChart,
   Area,
   BarChart,
   Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
-import { Filter, Sparkles, RefreshCcw } from "lucide-react";
-import { DetailedChart } from "@/components/market-stats/detailed-chart";
+import {
+  Calendar,
+  Clock,
+  Download,
+  Loader2,
+  Search,
+  Sparkles,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/lib/auth";
+import { Navigate } from "react-router-dom";
 
-// Mock market data for NIFTY and SENSEX
-const niftyData = [
-  { date: '2023-01', value: 17500 },
-  { date: '2023-02', value: 17300 },
-  { date: '2023-03', value: 17100 },
-  { date: '2023-04', value: 17600 },
-  { date: '2023-05', value: 18100 },
-  { date: '2023-06', value: 18400 },
-  { date: '2023-07', value: 18200 },
-  { date: '2023-08', value: 18500 },
-  { date: '2023-09', value: 18700 },
-  { date: '2023-10', value: 18600 },
-  { date: '2023-11', value: 18900 },
-  { date: '2023-12', value: 19000 },
-];
+// Mock data for charts
+const generateOHLCData = (days: number) => {
+  const data = [];
+  let currentValue = 18500;
+  
+  for (let i = 0; i < days; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - (days - i));
+    
+    const open = currentValue;
+    const volatility = Math.random() * 100 + 50;
+    const close = open + (Math.random() > 0.5 ? 1 : -1) * volatility * Math.random();
+    const low = Math.min(open, close) - volatility * Math.random() * 0.5;
+    const high = Math.max(open, close) + volatility * Math.random() * 0.5;
+    
+    data.push({
+      date: date.toISOString().split('T')[0],
+      open: parseFloat(open.toFixed(2)),
+      high: parseFloat(high.toFixed(2)),
+      low: parseFloat(low.toFixed(2)),
+      close: parseFloat(close.toFixed(2)),
+      volume: Math.floor(Math.random() * 10000000 + 5000000),
+    });
+    
+    currentValue = close; // Set next day's opening to today's close
+  }
+  
+  return data;
+};
 
-const sensexData = [
-  { date: '2023-01', value: 59000 },
-  { date: '2023-02', value: 58500 },
-  { date: '2023-03', value: 58000 },
-  { date: '2023-04', value: 59500 },
-  { date: '2023-05', value: 60500 },
-  { date: '2023-06', value: 61000 },
-  { date: '2023-07', value: 60500 },
-  { date: '2023-08', value: 61500 },
-  { date: '2023-09', value: 62000 },
-  { date: '2023-10', value: 61800 },
-  { date: '2023-11', value: 62500 },
-  { date: '2023-12', value: 63000 },
-];
+// Generate data for sectoral performance
+const generateSectoralData = () => {
+  const sectors = [
+    "IT",
+    "Banking",
+    "FMCG",
+    "Pharma",
+    "Auto",
+    "Energy",
+    "Metal",
+    "Realty",
+  ];
+  
+  return sectors.map(sector => ({
+    name: sector,
+    change: (Math.random() * 8 - 4).toFixed(2), // Between -4% and 4%
+  }));
+};
 
-// Mock sector performance data
-const sectorPerformanceData = [
-  { name: 'Technology', value: 8.2 },
-  { name: 'Banking', value: 3.7 },
-  { name: 'Energy', value: -2.1 },
-  { name: 'Healthcare', value: 5.4 },
-  { name: 'Consumer', value: 2.8 },
-  { name: 'Industrials', value: 1.2 },
-  { name: 'Materials', value: -1.5 },
-  { name: 'Real Estate', value: -0.8 },
-];
+// Generate data for top gainers and losers
+const generateGainersLosers = () => {
+  const stocks = [
+    { symbol: "TCS", name: "Tata Consultancy Services" },
+    { symbol: "INFY", name: "Infosys Ltd." },
+    { symbol: "HDFC", name: "HDFC Bank" },
+    { symbol: "RELIANCE", name: "Reliance Industries" },
+    { symbol: "SBIN", name: "State Bank of India" },
+    { symbol: "ICICI", name: "ICICI Bank" },
+    { symbol: "BHARTIARTL", name: "Bharti Airtel" },
+    { symbol: "ITC", name: "ITC Ltd." },
+    { symbol: "HINDUNILVR", name: "Hindustan Unilever" },
+    { symbol: "ASIANPAINT", name: "Asian Paints" },
+  ];
+  
+  // Create gainers
+  const gainers = [...stocks].slice(0, 5).map(stock => ({
+    ...stock,
+    change: (Math.random() * 5 + 1).toFixed(2), // 1% to 6%
+    price: (Math.random() * 1000 + 500).toFixed(2),
+  }));
+  
+  // Create losers
+  const losers = [...stocks].slice(5).map(stock => ({
+    ...stock,
+    change: (-Math.random() * 5 - 1).toFixed(2), // -1% to -6%
+    price: (Math.random() * 1000 + 500).toFixed(2),
+  }));
+  
+  return { gainers, losers };
+};
 
 export default function AnalysisPage() {
   const { user, loading } = useAuth();
-  const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [showDetailedChart, setShowDetailedChart] = useState<"NIFTY 50" | "SENSEX" | null>(null);
+  const [timeRange, setTimeRange] = useState<"1D" | "1W" | "1M" | "3M" | "1Y" | "5Y">("1M");
+  const [chartType, setChartType] = useState<"candlestick" | "area" | "line">("area");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<any>(null);
   
-  // Fetch user credits
-  useEffect(() => {
-    async function fetchUserCredits() {
-      if (!user) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('user_credits')
-          .select('credits_remaining')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (error) throw error;
-        
-        if (data) {
-          setUserCredits(data.credits_remaining);
-        } else {
-          // Create user credits if not exist
-          const { error: insertError } = await supabase
-            .from('user_credits')
-            .insert({ user_id: user.id });
-          
-          if (insertError) throw insertError;
-          setUserCredits(5); // Default credits
-        }
-      } catch (error) {
-        console.error("Error fetching user credits:", error);
-      }
+  // Generate data based on selected time range
+  const chartData = useMemo(() => {
+    switch(timeRange) {
+      case "1D": return generateOHLCData(1);
+      case "1W": return generateOHLCData(7);
+      case "1M": return generateOHLCData(30);
+      case "3M": return generateOHLCData(90);
+      case "1Y": return generateOHLCData(365);
+      case "5Y": return generateOHLCData(365 * 5);
+      default: return generateOHLCData(30);
     }
+  }, [timeRange]);
+  
+  const sectoralData = useMemo(() => generateSectoralData(), []);
+  const { gainers, losers } = useMemo(() => generateGainersLosers(), []);
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) return;
     
-    fetchUserCredits();
-  }, [user]);
+    setIsLoading(true);
+    // Simulate search delay
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+  };
+  
+  const handleGetPrediction = () => {
+    setIsPredicting(true);
+    // Simulate AI prediction delay
+    setTimeout(() => {
+      setIsPredicting(false);
+      setPrediction({
+        direction: "up", // or "down"
+        confidence: 78,
+        summary: "Based on technical indicators and market sentiment, NIFTY is likely to show a positive trend in the short term, with potential resistance at 19,200 level.",
+        factors: [
+          "Positive momentum in global markets",
+          "Strong institutional buying",
+          "Technical indicators showing bullish signals",
+          "Improved sector rotation"
+        ]
+      });
+    }, 2000);
+  };
 
   // If not logged in and not loading, redirect to login
   if (!loading && !user) {
@@ -135,18 +195,22 @@ export default function AnalysisPage() {
               <h1 className="text-xl font-semibold">Market Analysis</h1>
             </div>
             <div className="flex items-center gap-2">
-              {userCredits !== null && (
-                <Badge variant="outline" className="bg-primary/20 text-primary">
-                  {userCredits} Credits Left
-                </Badge>
-              )}
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <RefreshCcw size={14} />
-                <span>Refresh</span>
-              </Button>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Filter size={14} />
-                <span>Filter</span>
+              <div className="relative hidden md:block w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                <Input 
+                  placeholder="Search stocks or indices..." 
+                  className="pl-10 bg-black/20 border-white/10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+              </div>
+              <Button 
+                size="sm" 
+                onClick={handleSearch} 
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
               </Button>
             </div>
           </div>
@@ -154,213 +218,308 @@ export default function AnalysisPage() {
         
         {/* Content */}
         <main className="p-6">
-          {/* Main Indices Analysis */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Market Indices</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* NIFTY 50 */}
-              <Card className="glass-card border-white/10 hover:border-primary/30 transition-all cursor-pointer" onClick={() => setShowDetailedChart("NIFTY 50")}>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold">NIFTY 50</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold">18,756.15</span>
-                        <Badge className="bg-green-500/20 text-green-500">+1.2%</Badge>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">View Details</Button>
+          {/* Market Overview Card */}
+          <Card className="glass-card border-white/10 mb-6">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold">NIFTY 50 Overview</h2>
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1">
+                    <Calendar size={14} />
+                    <span>{new Date().toLocaleDateString()}</span>
+                    <Clock size={14} className="ml-2" />
+                    <span>{new Date().toLocaleTimeString()}</span>
                   </div>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={niftyData}>
-                        <defs>
-                          <linearGradient id="colorNifty" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="date" stroke="#888" />
-                        <YAxis stroke="#888" />
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#1a1625",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                            borderRadius: "8px",
-                          }}
-                          labelStyle={{ color: "#fff" }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="#8b5cf6" 
-                          fillOpacity={1}
-                          fill="url(#colorNifty)" 
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <div className="flex space-x-2 mt-4 md:mt-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setChartType("line")}
+                    className={chartType === "line" ? "border-primary text-primary" : ""}
+                  >
+                    Line
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setChartType("area")}
+                    className={chartType === "area" ? "border-primary text-primary" : ""}
+                  >
+                    Area
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setChartType("candlestick")}
+                    className={chartType === "candlestick" ? "border-primary text-primary" : ""}
+                  >
+                    Candlestick
+                  </Button>
+                </div>
+              </div>
               
-              {/* SENSEX */}
-              <Card className="glass-card border-white/10 hover:border-primary/30 transition-all cursor-pointer" onClick={() => setShowDetailedChart("SENSEX")}>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold">SENSEX</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold">61,872.64</span>
-                        <Badge className="bg-green-500/20 text-green-500">+0.8%</Badge>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">View Details</Button>
-                  </div>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={sensexData}>
-                        <defs>
-                          <linearGradient id="colorSensex" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="date" stroke="#888" />
-                        <YAxis stroke="#888" />
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#1a1625",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                            borderRadius: "8px",
-                          }}
-                          labelStyle={{ color: "#fff" }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="#06b6d4" 
-                          fillOpacity={1}
-                          fill="url(#colorSensex)" 
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-          
-          {/* Sector Performance */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Sector Performance</h2>
-            <Card className="glass-card border-white/10">
-              <CardContent className="p-6">
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={sectorPerformanceData}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+              <div className="grid grid-cols-4 gap-6 mb-6">
+                <div>
+                  <div className="text-sm text-muted-foreground">Open</div>
+                  <div className="text-xl font-semibold">18,450.25</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">High</div>
+                  <div className="text-xl font-semibold">18,532.10</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Low</div>
+                  <div className="text-xl font-semibold">18,392.30</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Close</div>
+                  <div className="text-xl font-semibold">18,512.75</div>
+                </div>
+              </div>
+              
+              <div className="flex space-x-2 mb-6">
+                {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((range) => (
+                  <Button 
+                    key={range}
+                    size="sm"
+                    variant={timeRange === range ? "default" : "outline"}
+                    onClick={() => setTimeRange(range as any)}
+                    className={timeRange === range ? "bg-primary" : ""}
+                  >
+                    {range}
+                  </Button>
+                ))}
+              </div>
+              
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  {chartType === "line" ? (
+                    <LineChart
+                      data={chartData}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                     >
-                      <XAxis type="number" stroke="#888" />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        stroke="#888"
-                        width={70} 
-                      />
                       <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                      <Tooltip
-                        formatter={(value) => [`${value}%`, 'Change']}
-                        contentStyle={{
-                          backgroundColor: "#1a1625",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: "8px",
-                        }}
-                        labelStyle={{ color: "#fff" }}
-                      />
+                      <XAxis dataKey="date" tick={{ fill: '#ccc' }} />
+                      <YAxis tick={{ fill: '#ccc' }} domain={['dataMin - 100', 'dataMax + 100']} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="close" name="NIFTY 50" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  ) : chartType === "area" ? (
+                    <AreaChart
+                      data={chartData}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                      <XAxis dataKey="date" tick={{ fill: '#ccc' }} />
+                      <YAxis tick={{ fill: '#ccc' }} domain={['dataMin - 100', 'dataMax + 100']} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                      <Legend />
+                      <Area type="monotone" dataKey="close" name="NIFTY 50" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorClose)" />
+                    </AreaChart>
+                  ) : (
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                      <XAxis dataKey="date" tick={{ fill: '#ccc' }} />
+                      <YAxis tick={{ fill: '#ccc' }} domain={['dataMin - 100', 'dataMax + 100']} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
                       <Legend />
                       <Bar 
-                        dataKey="value" 
-                        name="% Change" 
-                        fill={(entry) => entry.value >= 0 ? "#10b981" : "#ef4444"} 
-                        radius={[0, 4, 4, 0]}
+                        dataKey="volume" 
+                        name="Volume" 
+                        fill={(entry) => {
+                          return entry.open > entry.close ? "#ef4444" : "#10b981";
+                        }}
+                        stroke="#333"
                       />
                     </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  )}
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="mt-6">
+                <Button variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Chart
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           
-          {/* AI Market Insights */}
-          <div>
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              <Sparkles className="text-primary" size={24} />
-              AI Market Insights
-            </h2>
-            <Card className="glass-card border-white/10">
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* AI Prediction Card */}
+          <Card className="glass-card border-white/10 mb-6">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles className="text-primary" size={18} />
+                  AI Market Prediction
+                </h3>
+                {!prediction && (
+                  <Button 
+                    onClick={handleGetPrediction}
+                    disabled={isPredicting}
+                  >
+                    {isPredicting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating prediction...
+                      </>
+                    ) : (
+                      "Get Market Prediction"
+                    )}
+                  </Button>
+                )}
+              </div>
+              
+              {prediction && (
+                <div className="bg-black/20 p-4 rounded-lg border border-white/10">
+                  <div className="flex gap-4 mb-4">
+                    <div className={`flex items-center justify-center h-12 w-12 rounded-full ${
+                      prediction.direction === "up" ? "bg-green-500/20" : "bg-red-500/20"
+                    }`}>
+                      <span className={`text-2xl ${
+                        prediction.direction === "up" ? "text-green-500" : "text-red-500"
+                      }`}>
+                        {prediction.direction === "up" ? "↑" : "↓"}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Market Direction</div>
+                      <div className="text-xl font-semibold">{prediction.direction === "up" ? "Bullish" : "Bearish"}</div>
+                      <div className="text-sm mt-1">Confidence: <span className="font-medium">{prediction.confidence}%</span></div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h4 className="text-sm text-muted-foreground mb-1">Summary</h4>
+                    <p>{prediction.summary}</p>
+                  </div>
+                  
                   <div>
-                    <h3 className="text-lg font-semibold mb-3">Market Overview</h3>
-                    <p className="mb-4 text-muted-foreground">
-                      Markets are showing strength with both NIFTY 50 and SENSEX trading higher. 
-                      The Technology sector continues to outperform with a significant 8.2% gain, 
-                      while Energy struggles with a 2.1% decline. Foreign institutional investors 
-                      showed net buying in the last session.
-                    </p>
-                    <h4 className="font-medium mb-2">Key Drivers</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                      <li>Q4 earnings results exceeding expectations</li>
-                      <li>Potential interest rate cuts on the horizon</li>
-                      <li>Strong retail participation in the markets</li>
-                      <li>Global market sentiment improvement</li>
+                    <h4 className="text-sm text-muted-foreground mb-1">Key Factors</h4>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {prediction.factors.map((factor: string, i: number) => (
+                        <li key={i} className="text-sm">{factor}</li>
+                      ))}
                     </ul>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Predictions</h3>
-                    <Card className="bg-primary/10 border-primary/20 mb-4 p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="font-medium">NIFTY 50 Outlook</div>
-                        <Badge variant="outline" className="bg-primary/20">85% Confidence</Badge>
-                      </div>
-                      <p className="text-sm mb-3">
-                        Technical indicators suggest NIFTY 50 is likely to test the 19,000 level in 
-                        the next 1-2 weeks, with strong support at 18,500. Volume patterns indicate 
-                        continued buying interest.
-                      </p>
-                      <div className="text-xs text-muted-foreground">Based on latest market data</div>
-                    </Card>
-                    <Card className="bg-primary/10 border-primary/20 p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="font-medium">Sector Rotation</div>
-                        <Badge variant="outline" className="bg-primary/20">78% Confidence</Badge>
-                      </div>
-                      <p className="text-sm mb-3">
-                        The current market environment suggests a potential rotation from Technology 
-                        to Banking and Healthcare sectors in the coming weeks as valuations adjust and 
-                        earnings growth expectations shift.
-                      </p>
-                      <div className="text-xs text-muted-foreground">Based on sector analysis</div>
-                    </Card>
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+              
+              {!prediction && !isPredicting && (
+                <div className="text-center text-muted-foreground py-8">
+                  Get AI-powered market predictions and insights
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Secondary Analysis Tabs */}
+          <Tabs defaultValue="sectoral">
+            <TabsList className="mb-4">
+              <TabsTrigger value="sectoral">Sectoral Performance</TabsTrigger>
+              <TabsTrigger value="gainers">Top Gainers</TabsTrigger>
+              <TabsTrigger value="losers">Top Losers</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="sectoral">
+              <Card className="glass-card border-white/10">
+                <CardContent className="p-6">
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={sectoralData}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <XAxis type="number" tick={{ fill: '#ccc' }} />
+                        <YAxis dataKey="name" type="category" tick={{ fill: '#ccc' }} width={80} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1a1625', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                        <Legend />
+                        <Bar 
+                          dataKey="change" 
+                          name="% Change" 
+                          fill={(entry) => parseFloat(entry.change) >= 0 ? "#10b981" : "#ef4444"}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="gainers">
+              <Card className="glass-card border-white/10">
+                <CardContent className="p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="text-left py-3 px-4">Symbol</th>
+                          <th className="text-left py-3 px-4">Name</th>
+                          <th className="text-right py-3 px-4">Price</th>
+                          <th className="text-right py-3 px-4">Change (%)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gainers.map((stock, i) => (
+                          <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                            <td className="py-3 px-4 font-medium">{stock.symbol}</td>
+                            <td className="py-3 px-4 text-muted-foreground">{stock.name}</td>
+                            <td className="py-3 px-4 text-right">₹{stock.price}</td>
+                            <td className="py-3 px-4 text-right text-green-500">+{stock.change}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="losers">
+              <Card className="glass-card border-white/10">
+                <CardContent className="p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="text-left py-3 px-4">Symbol</th>
+                          <th className="text-left py-3 px-4">Name</th>
+                          <th className="text-right py-3 px-4">Price</th>
+                          <th className="text-right py-3 px-4">Change (%)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {losers.map((stock, i) => (
+                          <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                            <td className="py-3 px-4 font-medium">{stock.symbol}</td>
+                            <td className="py-3 px-4 text-muted-foreground">{stock.name}</td>
+                            <td className="py-3 px-4 text-right">₹{stock.price}</td>
+                            <td className="py-3 px-4 text-right text-red-500">{stock.change}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
-      
-      {/* Detailed chart modal */}
-      {showDetailedChart && (
-        <DetailedChart 
-          symbol={showDetailedChart} 
-          onClose={() => setShowDetailedChart(null)} 
-        />
-      )}
     </div>
   );
 }
