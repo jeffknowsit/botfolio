@@ -15,6 +15,9 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
+import PortfolioPage from "./pages/portfolio/PortfolioPage";
+import AnalysisPage from "./pages/analysis/AnalysisPage";
+import NewsPage from "./pages/news/NewsPage";
 
 function App() {
   // Create a client
@@ -32,9 +35,9 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/analysis" element={<Dashboard />} />
-              <Route path="/dashboard/portfolio" element={<Dashboard />} />
-              <Route path="/dashboard/news" element={<Dashboard />} />
+              <Route path="/dashboard/analysis" element={<AnalysisPage />} />
+              <Route path="/dashboard/portfolio" element={<PortfolioPage />} />
+              <Route path="/dashboard/news" element={<NewsPage />} />
               <Route path="/dashboard/profile" element={<Dashboard />} />
               <Route path="/dashboard/settings" element={<Settings />} />
               <Route path="/pricing" element={<Pricing />} />

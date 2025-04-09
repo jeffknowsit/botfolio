@@ -97,10 +97,10 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">
-              <span className="text-xl font-bold text-gradient">StockAI</span>
+              <span className="text-xl font-bold text-gradient">BotFolio</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              © 2025 StockAI. All rights reserved.
+              © 2025 BotFolio. All rights reserved.
             </div>
           </div>
         </div>

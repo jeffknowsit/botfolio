@@ -54,7 +54,7 @@ export function DashboardSidebar() {
     <div className="hidden lg:flex h-screen w-64 flex-col bg-gradient-to-b from-black/50 to-black/30 border-r border-white/10 backdrop-blur-xl fixed left-0 top-0">
       <div className="p-4">
         <Link to="/" className="flex items-center">
-          <span className="text-xl font-bold text-gradient">StockAI</span>
+          <span className="text-xl font-bold text-gradient">BotFolio</span>
         </Link>
       </div>
       

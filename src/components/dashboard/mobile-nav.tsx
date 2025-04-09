@@ -65,7 +65,7 @@ export function MobileNav() {
         <div className="h-full flex flex-col">
           <div className="p-4">
             <Link to="/" className="flex items-center" onClick={() => setIsOpen(false)}>
-              <span className="text-xl font-bold text-gradient">StockAI</span>
+              <span className="text-xl font-bold text-gradient">BotFolio</span>
             </Link>
           </div>
           
