@@ -104,20 +104,24 @@ export function StockDetailModal({ stock, onClose }: StockDetailModalProps) {
           };
           
           // Save prediction to database
-          supabase
-            .from('predictions')
-            .insert({
-              user_id: user?.id,
-              stock_symbol: stock.stock_symbol,
-              prediction: predictionDirection,
-              confidence: predictionResult.confidence,
-            })
-            .then(() => {
-              console.log("Prediction saved");
-            })
-            .catch(err => {
-              console.error("Error saving prediction:", err);
-            });
+          try {
+            supabase
+              .from('predictions')
+              .insert({
+                user_id: user?.id,
+                stock_symbol: stock.stock_symbol,
+                prediction: predictionDirection,
+                confidence: predictionResult.confidence,
+              })
+              .then(() => {
+                console.log("Prediction saved");
+              })
+              .catch(error => {
+                console.error("Error saving prediction:", error);
+              });
+          } catch (err) {
+            console.error("Error in prediction saving:", err);
+          }
           
           setPrediction(predictionResult);
         }, 2000);

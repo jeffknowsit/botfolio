@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
@@ -16,6 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from "recharts";
 import {
   Calendar,
@@ -338,11 +338,15 @@ export default function AnalysisPage() {
                       <Bar 
                         dataKey="volume" 
                         name="Volume" 
-                        fill={(entry) => {
-                          return entry.open > entry.close ? "#ef4444" : "#10b981";
-                        }}
-                        stroke="#333"
-                      />
+                        fill="#8b5cf6"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={entry.open > entry.close ? "#ef4444" : "#10b981"} 
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   )}
                 </ResponsiveContainer>
@@ -451,8 +455,15 @@ export default function AnalysisPage() {
                         <Bar 
                           dataKey="change" 
                           name="% Change" 
-                          fill={(entry) => parseFloat(entry.change) >= 0 ? "#10b981" : "#ef4444"}
-                        />
+                          fill="#8b5cf6"
+                        >
+                          {sectoralData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={parseFloat(entry.change) >= 0 ? "#10b981" : "#ef4444"}
+                            />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

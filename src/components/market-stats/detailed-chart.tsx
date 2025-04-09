@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { X, Download, ChevronDown, ChevronUp, Filter, Sparkles } from "lucide-react";
@@ -248,10 +249,15 @@ export function DetailedChart({ symbol, onClose }: DetailedChartProps) {
                     <Bar 
                       dataKey="volume" 
                       name="Volume" 
-                      fill={(entry) => {
-                        return entry.open > entry.close ? "#ef4444" : "#10b981";
-                      }}
-                    />
+                      fill="#8b5cf6"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.open > entry.close ? "#ef4444" : "#10b981"} 
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 )}
               </ResponsiveContainer>
