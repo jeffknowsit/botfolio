@@ -9,6 +9,83 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      portfolio_stocks: {
+        Row: {
+          added_at: string
+          id: string
+          portfolio_id: string
+          stock_name: string
+          stock_symbol: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          portfolio_id: string
+          stock_name: string
+          stock_symbol: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          portfolio_id?: string
+          stock_name?: string
+          stock_symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_stocks_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolios: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      predictions: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          prediction: string
+          stock_symbol: string
+          user_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          id?: string
+          prediction: string
+          stock_symbol: string
+          user_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          prediction?: string
+          stock_symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profilepic: {
         Row: {
           created_at: string | null
@@ -47,6 +124,30 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          credits_remaining: number
+          id: string
+          plan_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          credits_remaining?: number
+          id?: string
+          plan_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          credits_remaining?: number
+          id?: string
+          plan_type?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
