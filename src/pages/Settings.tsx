@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
@@ -10,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SubscriptionModal } from "@/components/ui/subscription-modal";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -30,19 +31,23 @@ import {
   Download, 
   Save,
   AlertTriangle,
-  Lock
+  Lock,
+  Upload,
+  Loader2
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_PROJECT_URL } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Settings() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, updateProfile } = useAuth();
   const { toast } = useToast();
   
   // Profile state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   // Security state
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -51,6 +56,31 @@ export default function Settings() {
   const [newsAlerts, setNewsAlerts] = useState(true);
   const [priceAlerts, setPriceAlerts] = useState(true);
   const [aiInsights, setAiInsights] = useState(true);
+  
+  // Subscription modal state
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  
+  // Fetch user profile from Supabase
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['userProfile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+        
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        throw error;
+      }
+      
+      return data;
+    },
+    enabled: !!user,
+  });
   
   // Fetch user credits from Supabase
   const { data: userCredits, isLoading: isLoadingCredits } = useQuery({
@@ -78,9 +108,60 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       setEmail(user.email || "");
-      // We could fetch name from profiles table if needed
     }
-  }, [user]);
+    
+    if (userProfile) {
+      setName(userProfile.display_name || "");
+      setAvatarUrl(userProfile.photo_url || null);
+    }
+  }, [user, userProfile]);
+  
+  // Handle file upload for profile photo
+  const uploadProfilePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files.length || !user) {
+      return;
+    }
+    
+    const file = event.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/profile.${fileExt}`;
+    
+    setUploading(true);
+    
+    try {
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('profile_photos')
+        .upload(filePath, file, { upsert: true });
+        
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data } = supabase.storage
+        .from('profile_photos')
+        .getPublicUrl(filePath);
+        
+      const photoUrl = data.publicUrl;
+      
+      // Update profile
+      await updateProfile({ photo_url: photoUrl });
+      setAvatarUrl(photoUrl);
+      
+      toast({
+        title: "Photo updated",
+        description: "Your profile photo has been updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      toast({
+        title: "Upload failed",
+        description: "Something went wrong while uploading your photo.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
   
   // If not logged in and not loading, redirect to login
   if (!loading && !user) {
@@ -99,16 +180,23 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     setIsSaving(true);
     
-    // Here we would update the user's profile in Supabase
-    // For now, just show a success toast
+    // Update the user's profile in Supabase
+    const { success, error } = await updateProfile({ display_name: name });
     
-    setTimeout(() => {
-      setIsSaving(false);
+    setIsSaving(false);
+    
+    if (success) {
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
       });
-    }, 1000);
+    } else {
+      toast({
+        title: "Update failed",
+        description: error?.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleToggleTwoFactor = () => {
@@ -167,7 +255,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Profile Settings */}
             <GlassCard className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold">Profile Settings</h3>
                 <Button 
                   size="sm" 
@@ -179,29 +267,59 @@ export default function Settings() {
                 </Button>
               </div>
               
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+              <div className="flex flex-col md:flex-row gap-6 items-start mb-6">
+                <div className="relative">
+                  <Avatar className="h-24 w-24 border-2 border-primary/20">
+                    <AvatarImage src={avatarUrl || undefined} />
+                    <AvatarFallback className="bg-primary/20 text-2xl">
+                      {name ? name[0].toUpperCase() : email ? email[0].toUpperCase() : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Label 
+                    htmlFor="avatar-upload" 
+                    className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1.5 cursor-pointer hover:bg-primary/90 transition-colors"
+                  >
+                    {uploading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Upload size={16} />
+                    )}
+                    <span className="sr-only">Upload avatar</span>
+                  </Label>
                   <Input 
-                    id="name" 
-                    value={name} 
-                    onChange={(e) => setName(e.target.value)} 
-                    placeholder="John Doe" 
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={uploadProfilePhoto}
+                    disabled={uploading}
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    disabled 
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Email address cannot be changed
-                  </p>
+                <div className="space-y-4 flex-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input 
+                      id="name" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)} 
+                      placeholder="John Doe" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)} 
+                      disabled 
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Email address cannot be changed
+                    </p>
+                  </div>
                 </div>
               </div>
             </GlassCard>
@@ -259,7 +377,10 @@ export default function Settings() {
                   </div>
                 </div>
                 
-                <Button className="w-full bg-gradient-button hover:opacity-90">
+                <Button 
+                  className="w-full bg-gradient-button hover:opacity-90"
+                  onClick={() => setIsSubscriptionModalOpen(true)}
+                >
                   Upgrade Plan
                 </Button>
               </div>
@@ -332,13 +453,20 @@ export default function Settings() {
                     )}
                   </div>
                   
-                  <Button className="w-full bg-gradient-button hover:opacity-90">
+                  <Button 
+                    className="w-full bg-gradient-button hover:opacity-90"
+                    onClick={() => setIsSubscriptionModalOpen(true)}
+                  >
                     {userCredits?.plan_type === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
                   </Button>
                 </div>
                 
                 <div className="text-center">
-                  <Button variant="link" className="text-primary text-xs">
+                  <Button 
+                    variant="link" 
+                    className="text-primary text-xs"
+                    onClick={() => setIsSubscriptionModalOpen(true)}
+                  >
                     View Plan Comparison
                   </Button>
                 </div>
@@ -411,6 +539,13 @@ export default function Settings() {
           </div>
         </main>
       </div>
+      
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        trigger={<></>} // Hidden trigger, opened programmatically
+        open={isSubscriptionModalOpen}
+        onOpenChange={setIsSubscriptionModalOpen}
+      />
     </div>
   );
 }

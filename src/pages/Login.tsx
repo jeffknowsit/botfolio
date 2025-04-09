@@ -1,4 +1,3 @@
-
 import { Navbar } from "@/components/ui/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 import { toast } from "sonner";
+import { FcGoogle } from "react-icons/fc";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -21,8 +21,9 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export default function Login() {
-  const { signIn, user } = useAuth();
+  const { signIn, signInWithGoogle, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   
   const form = useForm<FormData>({
@@ -44,6 +45,16 @@ export default function Login() {
       navigate("/dashboard");
     } else {
       toast.error(error?.message || "Failed to log in");
+    }
+  }
+  
+  async function handleGoogleSignIn() {
+    setIsGoogleLoading(true);
+    const { error } = await signInWithGoogle();
+    setIsGoogleLoading(false);
+    
+    if (error) {
+      toast.error(error?.message || "Failed to sign in with Google");
     }
   }
 
@@ -75,8 +86,34 @@ export default function Login() {
             {/* Right side - Login Form */}
             <div className="glass-card p-8 lg:p-10">
               <div className="mb-6 text-center">
-                <h1 className="text-2xl font-bold mb-2">Nice to see you!</h1>
+                <h1 className="text-2xl font-bold mb-2">Welcome to BotFolio</h1>
                 <p className="text-muted-foreground">Enter your credentials to sign in</p>
+              </div>
+              
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-white/20 mb-6 flex items-center justify-center gap-2"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                ) : (
+                  <FcGoogle className="h-5 w-5" />
+                )}
+                Sign in with Google
+              </Button>
+              
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
               </div>
               
               <Form {...form}>

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -13,41 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_PROJECT_URL } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface AddStockModalProps {
   trigger: React.ReactNode;
   onStockAdded: () => void;
 }
-
-// Mock stock search API
-const searchStocks = async (query: string) => {
-  // Simulating API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Mock data
-  const mockStocks = [
-    { symbol: "AAPL", name: "Apple Inc." },
-    { symbol: "MSFT", name: "Microsoft Corporation" },
-    { symbol: "GOOGL", name: "Alphabet Inc." },
-    { symbol: "AMZN", name: "Amazon.com Inc." },
-    { symbol: "META", name: "Meta Platforms Inc." },
-    { symbol: "TSLA", name: "Tesla Inc." },
-    { symbol: "NVDA", name: "NVIDIA Corporation" },
-    { symbol: "NFLX", name: "Netflix Inc." },
-    { symbol: "DIS", name: "The Walt Disney Company" },
-    { symbol: "JPM", name: "JPMorgan Chase & Co." },
-  ];
-  
-  if (!query) return [];
-  
-  return mockStocks.filter(
-    stock => 
-      stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
-      stock.name.toLowerCase().includes(query.toLowerCase())
-  );
-};
 
 export function AddStockModal({ trigger, onStockAdded }: AddStockModalProps) {
   const [open, setOpen] = useState(false);
@@ -64,15 +36,39 @@ export function AddStockModal({ trigger, onStockAdded }: AddStockModalProps) {
     
     setLoading(true);
     try {
-      const results = await searchStocks(searchQuery);
-      setSearchResults(results);
+      // Fetch stocks from our edge function
+      const response = await fetch(
+        `${SUPABASE_PROJECT_URL}/functions/v1/market-data/stocks`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch stocks');
+      }
+      
+      const { data } = await response.json();
+      
+      // Filter by search query
+      const filteredResults = data.filter(
+        (stock: any) => 
+          stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          stock.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 10); // Limit to 10 results
+      
+      setSearchResults(filteredResults);
     } catch (error) {
-      toast.error("Failed to search stocks");
       console.error(error);
+      toast.error("Failed to search stocks");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // When modal opens, pre-load some stock data
+    if (open && searchResults.length === 0 && !loading) {
+      handleSearch();
+    }
+  }, [open]);
 
   const handleAddStock = async () => {
     if (!selectedStock || !user) return;
